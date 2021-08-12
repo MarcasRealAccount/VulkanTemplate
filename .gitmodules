@@ -1,0 +1,15 @@
+[submodule "Deps/VMA"]
+	path = Deps/VMA
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "Deps/GLFW"]
+	path = Deps/GLFW
+	url = https://github.com/glfw/glfw.git
+[submodule "Deps/Vulkan"]
+	path = Deps/Vulkan
+	url = https://github.com/KhronosGroup/Vulkan-Hpp.git
+[submodule "Deps/ImGUI"]
+	path = Deps/ImGUI
+	url = https://github.com/ocornut/imgui.git
+[submodule "Deps/STB"]
+	path = Deps/STB
+	url = https://github.com/nothings/stb.git
