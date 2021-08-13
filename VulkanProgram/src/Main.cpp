@@ -18,6 +18,7 @@
 #define VULKAN_ENGINE_NAME "VulkanEngine"
 #define VULKAN_ENGINE_VERSION VK_MAKE_API_VERSION(0, 0, 1, 0)
 #define VULKAN_MIN_VERSION VK_API_VERSION_1_0
+#define VULKAN_MAX_VERSION VK_API_VERSION_1_2
 
 #define VULKAN_VSYNC false
 #define VULKAN_MAX_FRAMES_IN_FLIGHT 2
@@ -71,7 +72,13 @@ int main(int argc, char** argv) {
 	try {
 		// Initialize GLFW
 		if (!glfwInit()) {
-			std::cerr << "GLFW failed to initialize!" << std::endl;
+			std::cerr << "GLFW failed to initialize!\n";
+			return EXIT_FAILURE;
+		}
+
+		// Check for vulkan support
+		if (!glfwVulkanSupported()) {
+			std::cerr << "Vulkan is not supported on this system!\n";
 			return EXIT_FAILURE;
 		}
 
@@ -83,10 +90,37 @@ int main(int argc, char** argv) {
 		// Create window
 		GLFWwindow* windowPtr = glfwCreateWindow(1280, 720, VULKAN_PROGRAM_NAME, nullptr, nullptr);
 
+		// Get Implementation Version
+		std::uint32_t vulkanImplementationVersion;
+		if (vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion")) {
+			vk::Result result = vk::enumerateInstanceVersion(&vulkanImplementationVersion);
+			if (result != vk::Result::eSuccess)
+				vk::throwResultException(result, "vk::enumerateInstanceVersion");
+		} else {
+			vulkanImplementationVersion = VK_VERSION_1_0;
+		}
+
+		// Get Instance Version
+		std::uint32_t vulkanInstanceVersion;
+		if (vulkanImplementationVersion >= VULKAN_MAX_VERSION) {
+			vulkanInstanceVersion = VULKAN_MAX_VERSION;
+		} else if (vulkanImplementationVersion >= VULKAN_MIN_VERSION) {
+			vulkanInstanceVersion = vulkanImplementationVersion;
+		} else {
+			std::uint32_t minMajor  = VK_API_VERSION_MAJOR(VULKAN_MIN_VERSION);
+			std::uint32_t minMinor  = VK_API_VERSION_MINOR(VULKAN_MIN_VERSION);
+			std::uint32_t maxMajor  = VK_API_VERSION_MAJOR(VULKAN_MAX_VERSION);
+			std::uint32_t maxMinor  = VK_API_VERSION_MINOR(VULKAN_MAX_VERSION);
+			std::uint32_t implMajor = VK_API_VERSION_MAJOR(vulkanImplementationVersion);
+			std::uint32_t implMinor = VK_API_VERSION_MINOR(vulkanImplementationVersion);
+			std::cerr << "Vulkan Implementation Version is not within the range " << minMajor << "." << minMinor << " < " << implMajor << "." << implMinor << " < " << maxMajor << "." << maxMinor << "\n";
+			return EXIT_FAILURE;
+		}
+
 		// Create Vulkan Instance
 		vk::Instance vulkanInstance;
 		{
-			vk::ApplicationInfo appInfo = { VULKAN_PROGRAM_NAME, VULKAN_PROGRAM_VERSION, VULKAN_ENGINE_NAME, VULKAN_ENGINE_VERSION, VULKAN_MIN_VERSION };
+			vk::ApplicationInfo appInfo = { VULKAN_PROGRAM_NAME, VULKAN_PROGRAM_VERSION, VULKAN_ENGINE_NAME, VULKAN_ENGINE_VERSION, vulkanInstanceVersion };
 
 			std::vector<const char*> enabledLayerNames;
 			std::vector<const char*> enabledExtensionNames;
@@ -120,10 +154,6 @@ int main(int argc, char** argv) {
 
 			vulkanInstance = vk::createInstance(createInfo);
 		}
-
-		// Get API Version
-		std::uint32_t vulkanAPIVersion;
-		if (vk::enumerateInstanceVersion(&vulkanAPIVersion) != vk::Result::eSuccess) vulkanAPIVersion = VULKAN_MIN_VERSION;
 
 #ifdef _DEBUG
 		// Create Vulkan Debug Messenger
@@ -209,7 +239,7 @@ int main(int argc, char** argv) {
 		VmaAllocator vmaAllocator;
 		{
 			VmaAllocatorCreateInfo createInfo = {};
-			createInfo.vulkanApiVersion       = vulkanAPIVersion;
+			createInfo.vulkanApiVersion       = vulkanInstanceVersion;
 			createInfo.instance               = vulkanInstance;
 			createInfo.physicalDevice         = vulkanPhysicalDevice;
 			createInfo.device                 = vulkanDevice;
