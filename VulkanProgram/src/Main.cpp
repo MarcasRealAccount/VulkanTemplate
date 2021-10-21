@@ -1,3 +1,9 @@
+#define USE_GRAPHICS true
+
+#if USE_GRAPHICS
+	#include "Graphics/Instance.h"
+#endif
+
 #include <cstdint>
 #include <cstdlib>
 
@@ -10,7 +16,6 @@
 
 #include <vk_mem_alloc.h>
 
-#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
 #define VULKAN_PROGRAM_NAME "VulkanProgram"
@@ -90,6 +95,47 @@ int main(int argc, char** argv) {
 		// Create window
 		GLFWwindow* windowPtr = glfwCreateWindow(1280, 720, VULKAN_PROGRAM_NAME, nullptr, nullptr);
 
+#if USE_GRAPHICS
+		Graphics::Instance instance = { "VulkanProgram", { 0, 0, 1, 0 }, "VulkanEngine", { 0, 0, 1, 0 }, VK_API_VERSION_1_0, VK_API_VERSION_1_2 };
+
+	#ifdef _DEBUG
+		instance.requestLayer("VK_LAYER_KHRONOS_validation", { 0 }, false);
+	#endif
+
+		std::uint32_t glfwExtensionCount;
+		const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+
+		for (std::size_t i = 0; i < glfwExtensionCount; ++i)
+			instance.requestExtension(glfwExtensions[i]);
+
+	#ifdef _DEBUG
+		instance.requestExtension("VK_EXT_debug_utils", { 0 }, false);
+	#endif
+
+		if (!instance.create()) {
+			auto& missingLayers     = instance.getMissingLayers();
+			auto& missingExtensions = instance.getMissingExtensions();
+			if (!missingLayers.empty() || !missingExtensions.empty()) {
+				std::ostringstream str;
+				if (!missingLayers.empty()) {
+					str << "Missing " << missingLayers.size() << " instance layers:";
+					for (auto& layer : missingLayers)
+						str << "\n  " << layer.m_Name << " with version: " << layer.m_Version.m_Variant << '.' << layer.m_Version.m_Major << '.' << layer.m_Version.m_Minor << '.' << layer.m_Version.m_Patch;
+				}
+
+				if (!missingExtensions.empty()) {
+					str << "Missing " << missingExtensions.size() << " instance extensions:";
+					for (auto& extension : missingExtensions)
+						str << "\n  " << extension.m_Name << " with version: " << extension.m_Version.m_Variant << '.' << extension.m_Version.m_Major << '.' << extension.m_Version.m_Minor << '.' << extension.m_Version.m_Patch;
+				}
+				throw std::runtime_error(str.str());
+			} else {
+				throw std::runtime_error("Failed to create vulkan instance");
+			}
+		}
+
+		instance.destroy();
+#else
 		// Get Implementation Version
 		std::uint32_t vulkanImplementationVersion;
 		if (vkGetInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion")) {
@@ -125,10 +171,10 @@ int main(int argc, char** argv) {
 			std::vector<const char*> enabledLayerNames;
 			std::vector<const char*> enabledExtensionNames;
 
-#ifdef _DEBUG
+	#ifdef _DEBUG
 			// Add validation layer if in Debug mode
 			enabledLayerNames.push_back("VK_LAYER_KHRONOS_validation");
-#endif
+	#endif
 
 			// Get required Instance extensions from GLFW
 			std::uint32_t glfwExtensionCount;
@@ -139,26 +185,26 @@ int main(int argc, char** argv) {
 			for (std::size_t i = 0; i < glfwExtensionCount; ++i)
 				enabledExtensionNames[i] = glfwExtensions[i];
 
-#ifdef _DEBUG
+	#ifdef _DEBUG
 			// Add debug utils extension in Debug mode
 			enabledExtensionNames.push_back("VK_EXT_debug_utils");
-#endif
+	#endif
 
-			vk::InstanceCreateInfo createInfo = { {}, &appInfo, enabledLayerNames, enabledExtensionNames };
+			vk::InstanceCreateInfo createInfo                    = { {}, &appInfo, enabledLayerNames, enabledExtensionNames };
 
-#ifdef _DEBUG
+	#ifdef _DEBUG
 			vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo = { {}, vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError, vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance, &vulkanDebugCallback };
 
 			createInfo.pNext = &debugCreateInfo;
-#endif
+	#endif
 
 			vulkanInstance = vk::createInstance(createInfo);
 		}
 
-#ifdef _DEBUG
+	#ifdef _DEBUG
 		// Create Vulkan Debug Messenger
 		vk::DebugUtilsMessengerEXT vulkanDebugMessenger = vulkanInstance.createDebugUtilsMessengerEXT({ {}, /*vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose | vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo | */ vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning | vk::DebugUtilsMessageSeverityFlagBitsEXT::eError, vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral | vk::DebugUtilsMessageTypeFlagBitsEXT::eValidation | vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance, &vulkanDebugCallback });
-#endif
+	#endif
 
 		// Create surface from window
 		vk::SurfaceKHR vulkanSurface;
@@ -223,9 +269,9 @@ int main(int argc, char** argv) {
 
 			std::vector<const char*> enabledLayerNames;
 
-#ifdef _DEBUG
+	#ifdef _DEBUG
 			enabledLayerNames.push_back("VK_LAYER_KHRONOS_validation");
-#endif
+	#endif
 
 			std::vector<const char*> enabledExtensionNames = { "VK_KHR_swapchain" };
 
@@ -335,13 +381,13 @@ int main(int argc, char** argv) {
 				//       It should instead be a variable, but as I couldn't care to add that...
 				auto presentModes = vulkanPhysicalDevice.getSurfacePresentModesKHR(vulkanSurface);
 				for (auto& presentMode : presentModes) {
-#ifdef VULKAN_VSYNC
+	#ifdef VULKAN_VSYNC
 					if (presentMode == vk::PresentModeKHR::eFifo)
 						vulkanSwapchainPresentMode = presentMode;
-#else
+	#else
 					if (presentMode == vk::PresentModeKHR::eMailbox)
 						vulkanSwapchainPresentMode = presentMode;
-#endif
+	#endif
 				}
 				vulkanSwapchainPresentMode = vk::PresentModeKHR::eFifo;
 			}
@@ -806,13 +852,14 @@ int main(int argc, char** argv) {
 		// Destroy Vulkan Surface
 		vulkanInstance.destroySurfaceKHR(vulkanSurface);
 
-#ifdef _DEBUG
+	#ifdef _DEBUG
 		// Destroy Vulkan Debug Messenger
 		vulkanInstance.destroyDebugUtilsMessengerEXT(vulkanDebugMessenger);
-#endif
+	#endif
 
 		// Destroy Vulkan Instance
 		vulkanInstance.destroy();
+#endif
 
 		// Destroy window and terminate GLFW
 		glfwDestroyWindow(windowPtr);

@@ -13,16 +13,23 @@ local workspaceName = "VulkanTemplate"
 local programName = "VulkanProgram"
 
 local vulkanSDKPath = os.getenv("VULKAN_SDK")
+if not vulkanSDKPath then
+	local hostOS = os.host()
+	if hostOS == "windows" then
+		error("Have you installed the Vulkan SDK correctly.\nIf you have then please go into environment variables and add 'VULKAN_SDK' with the path to the SDK!")
+	else
+		error("Please add the environment variable 'VULKAN_SDK' with the path to the SDK!")
+	end
+end
 
 workspace(workspaceName)
 	configurations({ "Debug", "Release", "Dist" })
 	platforms({ "x64" })
 
-	cppdialect("C++latest")
-	rtti("On")
+	cppdialect("C++20")
+	rtti("Off")
 	exceptionhandling("On")
 	flags("MultiProcessorCompile")
-	defines({ "PREMAKE_SYSTEM_%{cfg.system}" })
 
 	filter("configurations:Debug")
 		defines({ "_DEBUG" })
@@ -58,56 +65,46 @@ workspace(workspaceName)
 
 		files({
 			"%{prj.location}/include/**",
-			"%{prj.location}/src/glfw_config.h",
 			"%{prj.location}/src/context.c",
 			"%{prj.location}/src/init.c",
 			"%{prj.location}/src/input.c",
+			"%{prj.location}/src/internal.h",
+			"%{prj.location}/src/mappings.h",
 			"%{prj.location}/src/monitor.c",
+			"%{prj.location}/src/null_*",
+			"%{prj.location}/src/platform.h",
+			"%{prj.location}/src/platform.c",
 			"%{prj.location}/src/vulkan.c",
-			"%{prj.location}/src/window.c"
+			"%{prj.location}/src/window.c",
+			"%{prj.location}/src/egl_*",
+			"%{prj.location}/src/osmesa_*"
 		})
 
 		filter("system:windows")
 			files({
-				"%{prj.location}/src/win32_init.c",
-				"%{prj.location}/src/win32_monitor.c",
-				"%{prj.location}/src/win32_window.c",
-				"%{prj.location}/src/win32_joystick.c",
-				"%{prj.location}/src/win32_time.c",
-				"%{prj.location}/src/win32_thread.c",
-				"%{prj.location}/src/wgl_context.c",
-				"%{prj.location}/src/egl_context.c",
-				"%{prj.location}/src/osmesa_context.c"
+				"%{prj.location}/src/win32_*",
+				"%{prj.location}/src/wgl_*"
 			})
 
 			defines({ "_GLFW_WIN32" })
 
 		filter("system:linux")
+			files({
+				"%{prj.location}/src/linux_*",
+				"%{prj.location}/src/posix_*",
+				"%{prj.location}/src/xkb_*",
+				"%{prj.location}/src/glx_*"
+			})
+			
 if _OPTIONS["glfw_use_wayland"] == "Y" then
 			files({
-				"%{prj.location}/src/wl_init.c",
-				"%{prj.location}/src/wl_monitor.c",
-				"%{prj.location}/src/wl_window.c",
-				"%{prj.location}/src/linux_joystick.c",
-				"%{prj.location}/src/posix_time.c",
-				"%{prj.location}/src/xkb_unicode.c",
-				"%{prj.location}/src/glx_context.c",
-				"%{prj.location}/src/egl_context.c",
-				"%{prj.location}/src/osmesa_context.c"
+				"%{prj.location}/src/wl_*"
 			})
 
 			defines({ "_GLFW_WAYLAND" })
 else
 			files({
-				"%{prj.location}/src/x11_init.c",
-				"%{prj.location}/src/x11_monitor.c",
-				"%{prj.location}/src/x11_window.c",
-				"%{prj.location}/src/linux_joystick.c",
-				"%{prj.location}/src/posix_time.c",
-				"%{prj.location}/src/xkb_unicode.c",
-				"%{prj.location}/src/glx_context.c",
-				"%{prj.location}/src/egl_context.c",
-				"%{prj.location}/src/osmesa_context.c"
+				"%{prj.location}/src/x11_*"
 			})
 
 			defines({ "_GLFW_X11" })
@@ -115,20 +112,16 @@ end
 
 		filter("system:macosx")
 			files({
-				"%{prj.location}/src/cocoa_init.c",
-				"%{prj.location}/src/cocoa_monitor.c",
-				"%{prj.location}/src/cocoa_window.c",
-				"%{prj.location}/src/cocoa_joystick.c",
-				"%{prj.location}/src/cocoa_time.c"
+				"%{prj.location}/src/cocoa_*",
+				"%{prj.location}/src/nsgl_*",
+				"%{prj.location}/src/posix_*"
+			})
+			removefiles({
+				"%{prj.location}/src/posix_time.h",
+				"%{prj.location}/src/posix_time.c"
 			})
 
 			defines({ "_GLFW_COCOA" })
-
-			links({
-				"Cocoa.framework",
-				"IOKit.framework",
-				"CoreFoundation.framework"
-			})
 
 		filter({})
 
@@ -207,9 +200,29 @@ end
 		filter("configurations:Release or Dist")
 			kind("WindowedApp")
 
-		filter({})
+		filter("system:windows")
+			libdirs({ vulkanSDKPath .. "/Lib/" })
+			links({ "vulkan-1" })
 
-		links({ "GLFW", vulkanSDKPath .. "/Lib/vulkan-1", "VMA", "ImGUI" })
+		filter("system:linux")
+			libdirs({ vulkanSDKPath .. "/lib/" })
+			links({ "vulkan-1" })
+			
+		filter("system:macosx")
+			libdirs({ vulkanSDKPath .. "/macos/lib/" })
+			links({
+				"vulkan.1",
+				"CoreGraphics.framework",
+				"IOKit.framework",
+				"AppKit.framework",
+				"OpenGL.framework"
+			})
+		
+		filter({})
+		
+		defines({ "GLFW_INCLUDE_NONE" })
+
+		links({ "GLFW", "VMA", "ImGUI" })
 		sysincludedirs({
 			"%{wks.location}/Deps/GLFW/include/",
 			"%{wks.location}/Deps/Vulkan/Vulkan-Headers/include/",
@@ -219,6 +232,10 @@ end
 			"%{wks.location}/Deps/STB/"
 		})
 
-		includedirs({ "%{prj.location}/src" })
+		includedirs({
+			"%{prj.location}/inc",
+			"%{prj.location}/src"
+		})
 
-		files({ "%{prj.location}/src/**" })
+		files({ "%{prj.location}/**" })
+		removefiles({ "*.vcxproj", "*.vcxproj.*", "*.Make", "*.mak", "*.xcodeproj/", "*.DS_Store" })

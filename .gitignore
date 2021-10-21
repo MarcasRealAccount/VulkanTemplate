@@ -1,18 +1,21 @@
-Bin/
-Int/
+# Output
+/Bin/
+/Int/
 
-*.so
-
-*.dll
-*.lib
-*.exe
-*.pdb
-*.exp
-
-Makefile
-*.mak
-
-.vs/
+# Visual Studio
+/.vs/
 *.sln
 *.vcxproj
 *.vcxproj.*
+
+# Makefile
+Makefile
+*.Make
+*.mak
+
+# XCode
+*.xcworkspace
+*.xcodeproj/
+
+# Macos
+*.DS_Store
